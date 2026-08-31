@@ -1,0 +1,16 @@
+{
+  "name": "gpu-calc",
+  "version": "1.0.0",
+  "description": "算力买 or 租 测算器 —— 推理集群 TCO 对比（自建 vs 按需租用）",
+  "main": "src/calculator.js",
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint src/ test/",
+    "check": "node --check src/calculator.js && npm run lint && npm test"
+  },
+  "keywords": ["gpu", "tco", "ai-infra", "calculator"],
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^9.0.0"
+  }
+}

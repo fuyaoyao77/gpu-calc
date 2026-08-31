@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>算力买 or 租 测算器 | 劝退GPU的架构师</title>
+<style>
+  :root {
+    --bg: #0f1420; --card: #1a2233; --card2: #202a40;
+    --txt: #e8edf7; --dim: #93a0b8; --line: #2c3850;
+    --red: #ff4d4f; --green: #2ecc71; --blue: #3b82f6; --amber: #f5a623;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Microsoft YaHei", -apple-system, sans-serif;
+    background: var(--bg); color: var(--txt); padding: 20px 14px 60px;
+    max-width: 860px; margin: 0 auto; line-height: 1.6;
+  }
+  header { text-align: center; margin-bottom: 22px; }
+  header h1 { font-size: 22px; color: #fff; letter-spacing: 1px; }
+  header p { color: var(--dim); font-size: 13px; margin-top: 6px; }
+  .badge {
+    display: inline-block; background: var(--red); color: #fff;
+    font-size: 12px; padding: 3px 10px; border-radius: 20px; margin-bottom: 8px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 15px; color: var(--blue); margin-bottom: 12px; display:flex; align-items:center; gap:8px;}
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .field { margin-bottom: 10px; }
+  .field label { display: block; font-size: 13px; color: var(--dim); margin-bottom: 4px; }
+  .field input, .field select {
+    width: 100%; background: var(--card2); color: var(--txt);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 10px; font-size: 14px; outline: none;
+  }
+  .field input:focus, .field select:focus { border-color: var(--blue); }
+  .field .unit { color: var(--dim); font-size: 12px; margin-top: 2px; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .presets button {
+    background: var(--card2); color: var(--txt); border: 1px solid var(--line);
+    border-radius: 16px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+  }
+  .presets button:hover { border-color: var(--blue); color: var(--blue); }
+  /* 结果区 */
+  .results { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 560px) { .results { grid-template-columns: 1fr; } }
+  .result-card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; text-align: center; }
+  .result-card .label { color: var(--dim); font-size: 12px; }
+  .result-card .num { font-size: 26px; font-weight: 700; margin: 6px 0; }
+  .result-card.self .num { color: var(--amber); }
+  .result-card.rent .num { color: var(--blue); }
+  .result-card.diff .num { color: var(--green); }
+  .verdict {
+    background: var(--card); border: 2px solid var(--green);
+    border-radius: 12px; padding: 18px; margin-top: 16px; text-align: center;
+  }
+  .verdict.buy { border-color: var(--amber); }
+  .verdict h3 { font-size: 18px; margin-bottom: 6px; }
+  .verdict p { color: var(--dim); font-size: 13px; }
+  /* 图 */
+  svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+  .legend { display: flex; gap: 18px; justify-content: center; margin-top: 8px; font-size: 12px; color: var(--dim); }
+  .legend span i { display: inline-block; width: 16px; height: 3px; margin-right: 6px; vertical-align: middle; border-radius: 2px; }
+  /* 摘要 */
+  textarea {
+    width: 100%; height: 150px; background: var(--card2); color: var(--txt);
+    border: 1px solid var(--line); border-radius: 8px; padding: 10px;
+    font-size: 13px; resize: vertical; outline: none;
+  }
+  .btn {
+    background: var(--blue); color: #fff; border: none; border-radius: 8px;
+    padding: 10px 18px; font-size: 14px; cursor: pointer; margin-top: 8px;
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .note { color: var(--dim); font-size: 12px; margin-top: 12px; line-height: 1.7; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="badge">测算模板 · 首发</span>
+  <h1>算力买 or 租 测算器</h1>
+  <p>输入你的场景，自动判断该买卡还是该租卡 · 由「劝退GPU的架构师」提供</p>
+</header>
+
+<!-- 参数区 -->
+<div class="card">
+  <h2>① 场景配置</h2>
+  <div class="presets">
+    <button onclick="preset('A800')">A800 80G</button>
+    <button onclick="preset('A100')">A100 80G</button>
+    <button onclick="preset('H20')">H20 96G</button>
+    <button onclick="preset('H100')">H100 80G</button>
+    <button onclick="preset('4090')">RTX4090</button>
+    <button onclick="preset('910B')">昇腾910B</button>
+  </div>
+  <div class="grid">
+    <div class="field">
+      <label>GPU 型号</label>
+      <select id="gpu" onchange="onGpuChange()"></select>
+    </div>
+    <div class="field">
+      <label>GPU 卡数（张）</label>
+      <input type="number" id="gpuCount" value="8" min="1" oninput="calc()">
+      <div class="unit">例：1 台 8 卡整机 = 8</div>
+    </div>
+    <div class="field">
+      <label>整机采购单价（元/台）</label>
+      <input type="number" id="rigPrice" value="1000000" min="0" step="50000" oninput="calc()">
+      <div class="unit">自建方案：8 卡整机市场价，随行情浮动</div>
+    </div>
+    <div class="field">
+      <label>折旧年限（年）</label>
+      <input type="number" id="years" value="5" min="1" step="1" oninput="calc()">
+      <div class="unit">硬件按 3-5 年折旧</div>
+    </div>
+    <div class="field">
+      <label>整机满载功耗（kW）</label>
+      <input type="number" id="powerKw" value="4.2" min="0.1" step="0.1" oninput="calc()">
+      <div class="unit">8 卡整机含 CPU/内存/网络</div>
+    </div>
+    <div class="field">
+      <label>电价（元/kWh）</label>
+      <input type="number" id="priceKwh" value="0.8" min="0" step="0.05" oninput="calc()">
+    </div>
+    <div class="field">
+      <label>年运维/机房费（元/年）</label>
+      <input type="number" id="opex" value="80000" min="0" step="10000" oninput="calc()">
+    </div>
+    <div class="field">
+      <label>租用单价（元/卡/小时）</label>
+      <input type="number" id="rentRate" value="10" min="0" step="0.5" oninput="calc()">
+      <div class="unit">主流云平台按需价，通常已含电费/运维</div>
+    </div>
+  </div>
+  <div class="field">
+    <label>平均负载率（%，0-100）</label>
+    <input type="range" id="loadRate" min="0" max="100" value="30" oninput="syncLoad()">
+    <div class="unit">当前：<b id="loadShow" style="color:var(--blue)">30%</b> · 指 GPU 实际被使用/占用的平均比例</div>
+  </div>
+</div>
+
+<!-- 结果区 -->
+<div class="results">
+  <div class="result-card self">
+    <div class="label">自建年成本</div>
+    <div class="num" id="selfCost">--</div>
+    <div class="label" style="color:var(--dim)">含折旧+电费+运维</div>
+  </div>
+  <div class="result-card rent">
+    <div class="label">租用年成本</div>
+    <div class="num" id="rentCost">--</div>
+    <div class="label" style="color:var(--dim)">按需计费 × 负载率</div>
+  </div>
+  <div class="result-card diff">
+    <div class="label">年差额（自建-租用）</div>
+    <div class="num" id="diff">--</div>
+    <div class="label" style="color:var(--dim)">正=租省 / 负=买省</div>
+  </div>
+</div>
+
+<div class="verdict" id="verdict">
+  <h3 id="verdictTitle">--</h3>
+  <p id="verdictDetail">--</p>
+</div>
+
+<div class="card">
+  <h2>② 负载率-年成本曲线（找交叉点）</h2>
+  <svg id="chart" viewBox="0 0 560 300" preserveAspectRatio="xMidYMid meet"></svg>
+  <div class="legend">
+    <span><i style="background:var(--amber)"></i>自建成本</span>
+    <span><i style="background:var(--blue)"></i>租用成本</span>
+    <span><i style="background:var(--green)"></i>平衡点</span>
+  </div>
+  <p class="note" id="breakeven">盈亏平衡负载率：--（低于它租更划算，高于它买更划算）</p>
+</div>
+
+<div class="card">
+  <h2>③ 一键生成结论摘要（可复制发客户/评论区）</h2>
+  <textarea id="summary" readonly></textarea><br>
+  <button class="btn" onclick="copySummary()">复制摘要</button>
+</div>
+
+<p class="note">
+  简算口径说明：自建年成本 = 整机价/折旧年限 + 满载功耗×8760×电价×负载率 + 年运维费；
+  租用年成本 = 卡时单价×卡数×8760×负载率（按需仅按实际占用付费，单价通常已含电费运维）。
+  价格为市场示意值，随行情波动，结果仅作决策参考，不构成采购建议。
+</p>
+
+<script src="src/calculator.js"></script>
+<script>
+const { GPU_PRESETS, computeCosts, formatMoney: fmt } = GpuCalc;
+
+function initGpuSelect() {
+  const sel = document.getElementById('gpu');
+  sel.innerHTML = Object.entries(GPU_PRESETS)
+    .map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  onGpuChange();
+}
+
+function onGpuChange() {
+  const g = GPU_PRESETS[document.getElementById('gpu').value];
+  if (g) {
+    document.getElementById('rigPrice').value = g.price;
+    document.getElementById('powerKw').value = g.kw;
+    document.getElementById('rentRate').value = g.rent;
+  }
+  calc();
+}
+
+function preset(name) { document.getElementById('gpu').value = name; onGpuChange(); }
+
+function syncLoad() {
+  document.getElementById('loadShow').textContent = document.getElementById('loadRate').value + '%';
+  calc();
+}
+
+function readParams() {
+  return {
+    cards: +document.getElementById('gpuCount').value || 1,
+    rigPrice: +document.getElementById('rigPrice').value || 0,
+    years: +document.getElementById('years').value || 5,
+    powerKw: +document.getElementById('powerKw').value || 0,
+    priceKwh: +document.getElementById('priceKwh').value || 0,
+    opex: +document.getElementById('opex').value || 0,
+    rentRate: +document.getElementById('rentRate').value || 0,
+    load: (+document.getElementById('loadRate').value || 0) / 100
+  };
+}
+
+function calc() {
+  const r = computeCosts(readParams());
+  const { selfCost, rentCost, diff, breakeven, load, cards } = r;
+
+  document.getElementById('selfCost').textContent = fmt(selfCost);
+  document.getElementById('rentCost').textContent = fmt(rentCost);
+  document.getElementById('diff').textContent = (diff >= 0 ? '+' : '') + fmt(diff);
+
+  const verdict = document.getElementById('verdict');
+  const vt = document.getElementById('verdictTitle');
+  const vd = document.getElementById('verdictDetail');
+  if (r.verdict === 'rent') {
+    verdict.className = 'verdict';
+    vt.textContent = '✅ 结论：租，更划算';
+    vd.textContent = `当前负载 ${Math.round(load*100)}% 下，租用年成本比自建低 ${fmt(selfCost - rentCost)}`;
+  } else {
+    verdict.className = 'verdict buy';
+    vt.textContent = '⚠️ 结论：买，可以考虑';
+    vd.textContent = `当前负载 ${Math.round(load*100)}% 下，自建年成本比租用低 ${fmt(rentCost - selfCost)}（需负载长期稳定）`;
+  }
+
+  const be = document.getElementById('breakeven');
+  be.textContent = `盈亏平衡负载率：${(breakeven*100).toFixed(0)}%` +
+    (breakeven < 1 ? '（低于此负载率时租更划算；高于时买更划算）' : '（即使在满负载下自建也难回本）');
+
+  drawChart(r);
+  buildSummary(r);
+}
+
+function drawChart(r) {
+  const W = 560, H = 300, padL = 46, padB = 34, padT = 12, padR = 10;
+  const cw = W - padL - padR, ch = H - padT - padB;
+  const { selfFixed, elecMax, rentMax } = r;
+
+  const maxY2 = Math.max(selfFixed + elecMax, rentMax) * 1.15 || 1;
+  const Y2 = v => padT + ch - ch * (v / maxY2);
+
+  const selfPath = [], rentPath = [];
+  for (let i = 0; i <= 100; i++) {
+    selfPath.push([padL + cw*i/100, Y2(selfFixed + elecMax*i/100)]);
+    rentPath.push([padL + cw*i/100, Y2(rentMax*i/100)]);
+  }
+
+  // 求交叉点
+  let crossX = null;
+  for (let i = 0; i < 100; i++) {
+    const s1 = selfFixed + elecMax*i/100, s2 = selfFixed + elecMax*(i+1)/100;
+    const r1 = rentMax*i/100, r2 = rentMax*(i+1)/100;
+    if ((s1 - r1) * (s2 - r2) <= 0) {
+      const t = (s1 - r1) / ((s1 - r1) - (s2 - r2));
+      crossX = (i + t);
+      break;
+    }
+  }
+
+  let svg = `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+ch}" stroke="#3a4a66" stroke-width="1"/>` +
+            `<line x1="${padL}" y1="${padT+ch}" x2="${padL+cw}" y2="${padT+ch}" stroke="#3a4a66" stroke-width="1"/>`;
+  // Y 轴刻度（4 条）
+  for (let k = 0; k <= 4; k++) {
+    const y = padT + ch - ch*k/4;
+    const v = maxY2 * k / 4;
+    svg += `<text x="${padL-8}" y="${y+4}" fill="#93a0b8" font-size="11" text-anchor="end">${v>=10000?(v/10000).toFixed(0)+'w':v.toFixed(0)}</text>` +
+           `<line x1="${padL}" y1="${y}" x2="${padL+cw}" y2="${y}" stroke="#2c3850" stroke-width="0.5" stroke-dasharray="3,4"/>`;
+  }
+  // X 轴刻度
+  for (let i = 0; i <= 5; i++) {
+    const x = padL + cw*i/5;
+    svg += `<text x="${x}" y="${padT+ch+18}" fill="#93a0b8" font-size="11" text-anchor="middle">${i*20}%</text>`;
+  }
+  // 曲线
+  svg += `<path d="${selfPath.map((p,i)=> (i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="#f5a623" stroke-width="2.5"/>`;
+  svg += `<path d="${rentPath.map((p,i)=> (i?'L':'M')+p[0]+','+p[1]).join(' ')}" fill="none" stroke="#3b82f6" stroke-width="2.5"/>`;
+  // 交叉点
+  if (crossX !== null) {
+    const cx = padL + cw*crossX/100, cy = Y2(selfFixed + elecMax*crossX/100);
+    svg += `<circle cx="${cx}" cy="${cy}" r="5" fill="#2ecc71" stroke="#0f1420" stroke-width="2"/>` +
+           `<text x="${cx}" y="${cy-10}" fill="#2ecc71" font-size="12" text-anchor="middle" font-weight="bold">平衡 ${crossX.toFixed(0)}%</text>`;
+  }
+  // 当前负载竖线
+  const cur = +document.getElementById('loadRate').value || 0;
+  svg += `<line x1="${padL+cw*cur/100}" y1="${padT}" x2="${padL+cw*cur/100}" y2="${padT+ch}" stroke="#ff4d4f" stroke-width="1.2" stroke-dasharray="4,3"/>`;
+
+  document.getElementById('chart').innerHTML = svg;
+}
+
+function buildSummary(r) {
+  const { selfCost: self, rentCost: rent, diff, load, breakeven: be, cards } = r;
+  const s = `📊 算力买 or 租 测算结果（${cards} 张 GPU）
+━━━━━━━━━━━━━━
+🔸 自建年成本：${fmt(self)}
+🔸 租用年成本：${fmt(rent)}
+🔸 年差额：${diff>=0?'+':''}${fmt(diff)}（正=租省/负=买省）
+🔸 当前负载：${Math.round(load*100)}%
+🔸 盈亏平衡负载率：${(be*100).toFixed(0)}%
+
+结论：${r.verdict === 'rent' ? '租更划算 ✅' : '可以考虑自建 ⚠️'}
+
+📌 建议：负载长期稳定在 ${(be*100).toFixed(0)}% 以上再考虑买卡；否则按需租用更省钱。
+（价格为示意值，随行情波动，结果仅供参考）
+—— 来自「劝退GPU的架构师」`;
+  document.getElementById('summary').value = s;
+}
+
+function copySummary() {
+  const t = document.getElementById('summary');
+  t.select();
+  if (navigator.clipboard) navigator.clipboard.writeText(t.value);
+  else document.execCommand('copy');
+  alert('摘要已复制 ✅');
+}
+
+initGpuSelect();
+calc();
+</script>
+</body>
+</html>
