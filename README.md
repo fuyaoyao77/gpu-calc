@@ -42,7 +42,8 @@ npm run lint       # 只跑 lint
 ├── src/calculator.js    # 纯计算逻辑（UMD，浏览器 + Node 双端可用）
 ├── test/calculator.test.js
 ├── package.json
-└── .eslintrc.json
+├── eslint.config.js     # ESLint flat config
+└── .github/workflows/ci.yml  # GitHub Actions：lint + 测试
 ```
 
 ## License
